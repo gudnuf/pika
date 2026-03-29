@@ -84,6 +84,10 @@ export interface PikachatDaemonLike {
   ): Promise<SendMediaResult>;
   sendTyping(nostrGroupId: string): Promise<void>;
   getMessages(nostrGroupId: string, limit?: number): Promise<unknown>;
+  initGroup(peerPubkey: string, groupName?: string): Promise<unknown>;
+  addMembers(nostrGroupId: string, peerPubkeys: string[]): Promise<unknown>;
+  removeMembers(nostrGroupId: string, peerPubkeys: string[]): Promise<unknown>;
+  leaveGroup(nostrGroupId: string): Promise<unknown>;
   shutdown(): Promise<void>;
   pid(): number | undefined;
 }
@@ -316,6 +320,37 @@ export class PikachatDaemonClient implements PikachatDaemonLike {
 
   async getMessages(nostrGroupId: string, limit = 50): Promise<unknown> {
     return await this.request({ cmd: "get_messages", nostr_group_id: nostrGroupId, limit } as any);
+  }
+
+  async initGroup(peerPubkey: string, groupName?: string): Promise<unknown> {
+    return await this.request({
+      cmd: "init_group",
+      peer_pubkey: peerPubkey,
+      ...(groupName ? { group_name: groupName } : {}),
+    } as any);
+  }
+
+  async addMembers(nostrGroupId: string, peerPubkeys: string[]): Promise<unknown> {
+    return await this.request({
+      cmd: "add_members",
+      nostr_group_id: nostrGroupId,
+      peer_pubkeys: peerPubkeys,
+    } as any);
+  }
+
+  async removeMembers(nostrGroupId: string, peerPubkeys: string[]): Promise<unknown> {
+    return await this.request({
+      cmd: "remove_members",
+      nostr_group_id: nostrGroupId,
+      peer_pubkeys: peerPubkeys,
+    } as any);
+  }
+
+  async leaveGroup(nostrGroupId: string): Promise<unknown> {
+    return await this.request({
+      cmd: "leave_group",
+      nostr_group_id: nostrGroupId,
+    } as any);
   }
 
   async shutdown(): Promise<void> {

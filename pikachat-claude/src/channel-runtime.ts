@@ -269,6 +269,46 @@ export class PikachatClaudeChannel {
     });
   }
 
+  async createGroup(peerPubkey: string, groupName?: string): Promise<unknown> {
+    const daemon = this.#requireDaemon();
+    return await daemon.initGroup(peerPubkey, groupName);
+  }
+
+  async addMembers(groupId: string, peerPubkeys: string[]): Promise<unknown> {
+    const daemon = this.#requireDaemon();
+    return await daemon.addMembers(groupId, peerPubkeys);
+  }
+
+  async listGroups(): Promise<unknown> {
+    const daemon = this.#requireDaemon();
+    return await daemon.listGroups();
+  }
+
+  async listMembers(groupId: string): Promise<unknown> {
+    const daemon = this.#requireDaemon();
+    return await daemon.listMembers(groupId);
+  }
+
+  async getMessages(groupId: string, limit?: number): Promise<unknown> {
+    const daemon = this.#requireDaemon();
+    return await daemon.getMessages(groupId, limit);
+  }
+
+  async listWelcomes(): Promise<unknown> {
+    const daemon = this.#requireDaemon();
+    return await daemon.listPendingWelcomes();
+  }
+
+  async acceptWelcome(wrapperEventId: string): Promise<void> {
+    const daemon = this.#requireDaemon();
+    await daemon.acceptWelcome(wrapperEventId);
+  }
+
+  async sendTyping(groupId: string): Promise<void> {
+    const daemon = this.#requireDaemon();
+    await daemon.sendTyping(groupId);
+  }
+
   async #resolveOutboundFiles(files: string[]): Promise<string[]> {
     if (files.length === 0) {
       return [];

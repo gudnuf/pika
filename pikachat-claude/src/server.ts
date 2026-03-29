@@ -183,6 +183,114 @@ mcp.setRequestHandler(ListToolsRequestSchema, async () => ({
         required: ["group_id"],
       },
     },
+    {
+      name: "create_group",
+      description:
+        "Create a new encrypted group with a peer.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          peer_pubkey: {
+            type: "string",
+            description: "Nostr npub or hex pubkey of the peer",
+          },
+          group_name: {
+            type: "string",
+            description: "Optional group name",
+          },
+        },
+        required: ["peer_pubkey"],
+      },
+    },
+    {
+      name: "add_members",
+      description: "Add one or more peers to an existing group.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          group_id: {
+            type: "string",
+            description: "The nostr_group_id of the group",
+          },
+          peer_pubkeys: {
+            type: "array",
+            items: { type: "string" },
+            description: "Nostr npubs or hex pubkeys of peers to add",
+          },
+        },
+        required: ["group_id", "peer_pubkeys"],
+      },
+    },
+    {
+      name: "list_groups",
+      description: "List all groups this agent belongs to.",
+      inputSchema: { type: "object", properties: {} },
+    },
+    {
+      name: "list_members",
+      description: "List members of a group.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          group_id: {
+            type: "string",
+            description: "The nostr_group_id of the group",
+          },
+        },
+        required: ["group_id"],
+      },
+    },
+    {
+      name: "get_messages",
+      description: "Fetch recent messages from a group.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          group_id: {
+            type: "string",
+            description: "The nostr_group_id of the group",
+          },
+          limit: {
+            type: "number",
+            description: "Maximum number of messages to return (default 50)",
+          },
+        },
+        required: ["group_id"],
+      },
+    },
+    {
+      name: "list_welcomes",
+      description: "List pending group invitations.",
+      inputSchema: { type: "object", properties: {} },
+    },
+    {
+      name: "accept_welcome",
+      description: "Accept a pending group invitation by its wrapper event ID.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          wrapper_event_id: {
+            type: "string",
+            description: "The wrapper_event_id from list_welcomes",
+          },
+        },
+        required: ["wrapper_event_id"],
+      },
+    },
+    {
+      name: "send_typing",
+      description: "Send a typing indicator to a group.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          group_id: {
+            type: "string",
+            description: "The nostr_group_id of the group",
+          },
+        },
+        required: ["group_id"],
+      },
+    },
   ],
 }));
 
@@ -248,6 +356,49 @@ mcp.setRequestHandler(CallToolRequestSchema, async (request) => {
     }
     case "disable_group": {
       return textResult(JSON.stringify(await runtime.disableGroup(requireNonEmptyString(args, "group_id")), null, 2));
+    }
+    case "create_group": {
+      const result = await runtime.createGroup(
+        requireNonEmptyString(args, "peer_pubkey"),
+        typeof args.group_name === "string" ? args.group_name : undefined,
+      );
+      return textResult(JSON.stringify(result, null, 2));
+    }
+    case "add_members": {
+      const peerPubkeys = args.peer_pubkeys;
+      if (!Array.isArray(peerPubkeys) || peerPubkeys.length === 0) {
+        throw new Error("peer_pubkeys must be a non-empty array");
+      }
+      const result = await runtime.addMembers(
+        requireNonEmptyString(args, "group_id"),
+        peerPubkeys.map((entry) => String(entry)),
+      );
+      return textResult(JSON.stringify(result, null, 2));
+    }
+    case "list_groups": {
+      return textResult(JSON.stringify(await runtime.listGroups(), null, 2));
+    }
+    case "list_members": {
+      return textResult(
+        JSON.stringify(await runtime.listMembers(requireNonEmptyString(args, "group_id")), null, 2),
+      );
+    }
+    case "get_messages": {
+      const limit = typeof args.limit === "number" ? args.limit : undefined;
+      return textResult(
+        JSON.stringify(await runtime.getMessages(requireNonEmptyString(args, "group_id"), limit), null, 2),
+      );
+    }
+    case "list_welcomes": {
+      return textResult(JSON.stringify(await runtime.listWelcomes(), null, 2));
+    }
+    case "accept_welcome": {
+      await runtime.acceptWelcome(requireNonEmptyString(args, "wrapper_event_id"));
+      return textResult("welcome accepted");
+    }
+    case "send_typing": {
+      await runtime.sendTyping(requireNonEmptyString(args, "group_id"));
+      return textResult("typing indicator sent");
     }
     default:
       throw new Error(`unknown tool: ${request.params.name}`);
