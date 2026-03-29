@@ -222,6 +222,39 @@ mcp.setRequestHandler(ListToolsRequestSchema, async () => ({
       },
     },
     {
+      name: "remove_members",
+      description: "Remove one or more peers from a group.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          group_id: {
+            type: "string",
+            description: "The nostr_group_id of the group",
+          },
+          peer_pubkeys: {
+            type: "array",
+            items: { type: "string" },
+            description: "Nostr npubs or hex pubkeys of peers to remove",
+          },
+        },
+        required: ["group_id", "peer_pubkeys"],
+      },
+    },
+    {
+      name: "leave_group",
+      description: "Leave a group.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          group_id: {
+            type: "string",
+            description: "The nostr_group_id of the group",
+          },
+        },
+        required: ["group_id"],
+      },
+    },
+    {
       name: "list_groups",
       description: "List all groups this agent belongs to.",
       inputSchema: { type: "object", properties: {} },
@@ -373,6 +406,21 @@ mcp.setRequestHandler(CallToolRequestSchema, async (request) => {
         requireNonEmptyString(args, "group_id"),
         peerPubkeys.map((entry) => String(entry)),
       );
+      return textResult(JSON.stringify(result, null, 2));
+    }
+    case "remove_members": {
+      const peerPubkeys = args.peer_pubkeys;
+      if (!Array.isArray(peerPubkeys) || peerPubkeys.length === 0) {
+        throw new Error("peer_pubkeys must be a non-empty array");
+      }
+      const result = await runtime.removeMembers(
+        requireNonEmptyString(args, "group_id"),
+        peerPubkeys.map((entry) => String(entry)),
+      );
+      return textResult(JSON.stringify(result, null, 2));
+    }
+    case "leave_group": {
+      const result = await runtime.leaveGroup(requireNonEmptyString(args, "group_id"));
       return textResult(JSON.stringify(result, null, 2));
     }
     case "list_groups": {

@@ -10,6 +10,43 @@ Claude Code channel plugin backed by `pikachat daemon`.
 - inbound attachment surfacing via daemon-provided local paths
 - local relay e2e harness
 
+## MCP tools
+
+### Messaging
+
+| Tool | Description |
+|------|-------------|
+| `reply` | Send a text reply and optional file attachments |
+| `react` | React to a message by event ID |
+| `send_typing` | Send a typing indicator to a group |
+| `get_messages` | Fetch recent messages from a group |
+
+### Group management
+
+| Tool | Description |
+|------|-------------|
+| `create_group` | Create a new encrypted group with a peer |
+| `add_members` | Add peers to an existing group |
+| `remove_members` | Remove peers from a group |
+| `leave_group` | Leave a group |
+| `list_groups` | List all groups this agent belongs to |
+| `list_members` | List members of a group |
+| `list_welcomes` | List pending group invitations |
+| `accept_welcome` | Accept a pending group invitation |
+
+### Access control
+
+| Tool | Description |
+|------|-------------|
+| `access_status` | Show DM policy, allowlist, groups, and pending pairings |
+| `approve_pairing` | Approve a pending DM pairing code |
+| `deny_pairing` | Deny a pending DM pairing code |
+| `set_dm_policy` | Set DM policy to pairing, allowlist, or disabled |
+| `allow_sender` | Add a sender pubkey to the DM allowlist |
+| `remove_sender` | Remove a sender pubkey from the DM allowlist |
+| `enable_group` | Enable a group with optional mention gating |
+| `disable_group` | Disable a group from delivering messages |
+
 ## Local development
 
 ```sh

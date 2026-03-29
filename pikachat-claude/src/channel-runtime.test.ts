@@ -82,6 +82,27 @@ class FakeDaemon {
     return { messages: [] };
   }
 
+  async initGroup(peerPubkey: string, groupName?: string) {
+    return {
+      nostr_group_id: "new-group-1",
+      mls_group_id: "mls-1",
+      peer_pubkey: peerPubkey,
+      member_count: 2,
+    };
+  }
+
+  async addMembers(nostrGroupId: string, peerPubkeys: string[]) {
+    return null;
+  }
+
+  async removeMembers(nostrGroupId: string, peerPubkeys: string[]) {
+    return null;
+  }
+
+  async leaveGroup(nostrGroupId: string) {
+    return null;
+  }
+
   async shutdown() {
     this.shutdownCalls += 1;
   }
@@ -329,6 +350,249 @@ describe("PikachatClaudeChannel", () => {
       assert.deepEqual(result.eventIds, ["media-1"]);
     } finally {
       await channel.stop();
+      await rm(tempDir, { recursive: true, force: true });
+    }
+  });
+
+  it("createGroup delegates to daemon.initGroup", async () => {
+    const tempDir = await mkdtemp(path.join(os.tmpdir(), "pikachat-claude-"));
+    const daemon = new FakeDaemon();
+    const channel = createInMemoryChannelForTests({
+      daemon,
+      config: {
+        channelHome: tempDir,
+        accessFile: path.join(tempDir, "access.json"),
+        inboxDir: path.join(tempDir, "inbox"),
+      },
+    });
+    try {
+      await channel.start();
+      const result = (await channel.createGroup("peer1", "test-group")) as {
+        nostr_group_id: string;
+        member_count: number;
+      };
+      assert.equal(result.nostr_group_id, "new-group-1");
+      assert.equal(result.member_count, 2);
+    } finally {
+      await channel.stop();
+      await rm(tempDir, { recursive: true, force: true });
+    }
+  });
+
+  it("addMembers delegates to daemon.addMembers", async () => {
+    const tempDir = await mkdtemp(path.join(os.tmpdir(), "pikachat-claude-"));
+    const daemon = new FakeDaemon();
+    const channel = createInMemoryChannelForTests({
+      daemon,
+      config: {
+        channelHome: tempDir,
+        accessFile: path.join(tempDir, "access.json"),
+        inboxDir: path.join(tempDir, "inbox"),
+      },
+    });
+    try {
+      await channel.start();
+      // Should not throw
+      await channel.addMembers("group1", ["peer1", "peer2"]);
+    } finally {
+      await channel.stop();
+      await rm(tempDir, { recursive: true, force: true });
+    }
+  });
+
+  it("removeMembers delegates to daemon.removeMembers", async () => {
+    const tempDir = await mkdtemp(path.join(os.tmpdir(), "pikachat-claude-"));
+    const daemon = new FakeDaemon();
+    const channel = createInMemoryChannelForTests({
+      daemon,
+      config: {
+        channelHome: tempDir,
+        accessFile: path.join(tempDir, "access.json"),
+        inboxDir: path.join(tempDir, "inbox"),
+      },
+    });
+    try {
+      await channel.start();
+      await channel.removeMembers("group1", ["peer1"]);
+    } finally {
+      await channel.stop();
+      await rm(tempDir, { recursive: true, force: true });
+    }
+  });
+
+  it("leaveGroup delegates to daemon.leaveGroup", async () => {
+    const tempDir = await mkdtemp(path.join(os.tmpdir(), "pikachat-claude-"));
+    const daemon = new FakeDaemon();
+    const channel = createInMemoryChannelForTests({
+      daemon,
+      config: {
+        channelHome: tempDir,
+        accessFile: path.join(tempDir, "access.json"),
+        inboxDir: path.join(tempDir, "inbox"),
+      },
+    });
+    try {
+      await channel.start();
+      await channel.leaveGroup("group1");
+    } finally {
+      await channel.stop();
+      await rm(tempDir, { recursive: true, force: true });
+    }
+  });
+
+  it("listGroups returns known groups", async () => {
+    const tempDir = await mkdtemp(path.join(os.tmpdir(), "pikachat-claude-"));
+    const daemon = new FakeDaemon();
+    daemon.memberCountByGroup.set("g1", 3);
+    daemon.memberCountByGroup.set("g2", 5);
+    const channel = createInMemoryChannelForTests({
+      daemon,
+      config: {
+        channelHome: tempDir,
+        accessFile: path.join(tempDir, "access.json"),
+        inboxDir: path.join(tempDir, "inbox"),
+      },
+    });
+    try {
+      await channel.start();
+      const result = (await channel.listGroups()) as { groups: Array<{ nostr_group_id: string }> };
+      const ids = result.groups.map((g) => g.nostr_group_id).sort();
+      assert.deepEqual(ids, ["g1", "g2"]);
+    } finally {
+      await channel.stop();
+      await rm(tempDir, { recursive: true, force: true });
+    }
+  });
+
+  it("listMembers returns member count for a group", async () => {
+    const tempDir = await mkdtemp(path.join(os.tmpdir(), "pikachat-claude-"));
+    const daemon = new FakeDaemon();
+    daemon.memberCountByGroup.set("g1", 4);
+    const channel = createInMemoryChannelForTests({
+      daemon,
+      config: {
+        channelHome: tempDir,
+        accessFile: path.join(tempDir, "access.json"),
+        inboxDir: path.join(tempDir, "inbox"),
+      },
+    });
+    try {
+      await channel.start();
+      const result = (await channel.listMembers("g1")) as { member_count: number };
+      assert.equal(result.member_count, 4);
+    } finally {
+      await channel.stop();
+      await rm(tempDir, { recursive: true, force: true });
+    }
+  });
+
+  it("getMessages returns empty array from fake", async () => {
+    const tempDir = await mkdtemp(path.join(os.tmpdir(), "pikachat-claude-"));
+    const daemon = new FakeDaemon();
+    const channel = createInMemoryChannelForTests({
+      daemon,
+      config: {
+        channelHome: tempDir,
+        accessFile: path.join(tempDir, "access.json"),
+        inboxDir: path.join(tempDir, "inbox"),
+      },
+    });
+    try {
+      await channel.start();
+      const result = (await channel.getMessages("g1", 10)) as { messages: unknown[] };
+      assert.deepEqual(result.messages, []);
+    } finally {
+      await channel.stop();
+      await rm(tempDir, { recursive: true, force: true });
+    }
+  });
+
+  it("listWelcomes returns empty array from fake", async () => {
+    const tempDir = await mkdtemp(path.join(os.tmpdir(), "pikachat-claude-"));
+    const daemon = new FakeDaemon();
+    const channel = createInMemoryChannelForTests({
+      daemon,
+      config: {
+        channelHome: tempDir,
+        accessFile: path.join(tempDir, "access.json"),
+        inboxDir: path.join(tempDir, "inbox"),
+      },
+    });
+    try {
+      await channel.start();
+      const result = (await channel.listWelcomes()) as { welcomes: unknown[] };
+      assert.deepEqual(result.welcomes, []);
+    } finally {
+      await channel.stop();
+      await rm(tempDir, { recursive: true, force: true });
+    }
+  });
+
+  it("acceptWelcome delegates to daemon.acceptWelcome", async () => {
+    const tempDir = await mkdtemp(path.join(os.tmpdir(), "pikachat-claude-"));
+    const daemon = new FakeDaemon();
+    const channel = createInMemoryChannelForTests({
+      daemon,
+      config: {
+        channelHome: tempDir,
+        accessFile: path.join(tempDir, "access.json"),
+        inboxDir: path.join(tempDir, "inbox"),
+      },
+    });
+    try {
+      await channel.start();
+      // Should not throw
+      await channel.acceptWelcome("wrapper-event-1");
+    } finally {
+      await channel.stop();
+      await rm(tempDir, { recursive: true, force: true });
+    }
+  });
+
+  it("sendTyping delegates to daemon.sendTyping", async () => {
+    const tempDir = await mkdtemp(path.join(os.tmpdir(), "pikachat-claude-"));
+    const daemon = new FakeDaemon();
+    const channel = createInMemoryChannelForTests({
+      daemon,
+      config: {
+        channelHome: tempDir,
+        accessFile: path.join(tempDir, "access.json"),
+        inboxDir: path.join(tempDir, "inbox"),
+      },
+    });
+    try {
+      await channel.start();
+      await channel.sendTyping("g1");
+    } finally {
+      await channel.stop();
+      await rm(tempDir, { recursive: true, force: true });
+    }
+  });
+
+  it("group management methods throw when daemon is not running", async () => {
+    const tempDir = await mkdtemp(path.join(os.tmpdir(), "pikachat-claude-"));
+    const daemon = new FakeDaemon();
+    const channel = createInMemoryChannelForTests({
+      daemon,
+      config: {
+        channelHome: tempDir,
+        accessFile: path.join(tempDir, "access.json"),
+        inboxDir: path.join(tempDir, "inbox"),
+      },
+    });
+    try {
+      // Do not call start — daemon is not running
+      await assert.rejects(() => channel.createGroup("peer1"), /daemon is not running/);
+      await assert.rejects(() => channel.addMembers("g1", ["p1"]), /daemon is not running/);
+      await assert.rejects(() => channel.removeMembers("g1", ["p1"]), /daemon is not running/);
+      await assert.rejects(() => channel.leaveGroup("g1"), /daemon is not running/);
+      await assert.rejects(() => channel.listGroups(), /daemon is not running/);
+      await assert.rejects(() => channel.listMembers("g1"), /daemon is not running/);
+      await assert.rejects(() => channel.getMessages("g1"), /daemon is not running/);
+      await assert.rejects(() => channel.listWelcomes(), /daemon is not running/);
+      await assert.rejects(() => channel.acceptWelcome("w1"), /daemon is not running/);
+      await assert.rejects(() => channel.sendTyping("g1"), /daemon is not running/);
+    } finally {
       await rm(tempDir, { recursive: true, force: true });
     }
   });

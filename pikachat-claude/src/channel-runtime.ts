@@ -269,41 +269,61 @@ export class PikachatClaudeChannel {
     });
   }
 
+  /** Returns `{ nostr_group_id, mls_group_id, peer_pubkey, member_count }`. */
   async createGroup(peerPubkey: string, groupName?: string): Promise<unknown> {
     const daemon = this.#requireDaemon();
     return await daemon.initGroup(peerPubkey, groupName);
   }
 
+  /** Returns daemon acknowledgement after adding peers. */
   async addMembers(groupId: string, peerPubkeys: string[]): Promise<unknown> {
     const daemon = this.#requireDaemon();
     return await daemon.addMembers(groupId, peerPubkeys);
   }
 
+  /** Returns daemon acknowledgement after removing peers. */
+  async removeMembers(groupId: string, peerPubkeys: string[]): Promise<unknown> {
+    const daemon = this.#requireDaemon();
+    return await daemon.removeMembers(groupId, peerPubkeys);
+  }
+
+  /** Returns daemon acknowledgement after leaving the group. */
+  async leaveGroup(groupId: string): Promise<unknown> {
+    const daemon = this.#requireDaemon();
+    return await daemon.leaveGroup(groupId);
+  }
+
+  /** Returns `{ groups: Array<{ nostr_group_id, member_count }> }`. */
   async listGroups(): Promise<unknown> {
     const daemon = this.#requireDaemon();
     return await daemon.listGroups();
   }
 
+  /** Returns `{ member_count }` for the given group. */
   async listMembers(groupId: string): Promise<unknown> {
     const daemon = this.#requireDaemon();
     return await daemon.listMembers(groupId);
   }
 
+  /** Returns `{ messages: Array<{ event_id, from_pubkey, content, ... }> }`. */
   async getMessages(groupId: string, limit?: number): Promise<unknown> {
     const daemon = this.#requireDaemon();
     return await daemon.getMessages(groupId, limit);
   }
 
+  /** Returns `{ welcomes: Array<{ wrapper_event_id, from_pubkey, nostr_group_id, group_name }> }`. */
   async listWelcomes(): Promise<unknown> {
     const daemon = this.#requireDaemon();
     return await daemon.listPendingWelcomes();
   }
 
+  /** Accepts a pending welcome; no return value on success. */
   async acceptWelcome(wrapperEventId: string): Promise<void> {
     const daemon = this.#requireDaemon();
     await daemon.acceptWelcome(wrapperEventId);
   }
 
+  /** Sends a typing indicator; no return value on success. */
   async sendTyping(groupId: string): Promise<void> {
     const daemon = this.#requireDaemon();
     await daemon.sendTyping(groupId);
