@@ -324,6 +324,11 @@ mcp.setRequestHandler(ListToolsRequestSchema, async () => ({
         required: ["group_id"],
       },
     },
+    {
+      name: "publish_keypackage",
+      description: "Publish a fresh MLS key package to relays. Call this to fix stale key packages that cause one-way message delivery failures in groups.",
+      inputSchema: { type: "object", properties: {} },
+    },
   ],
 }));
 
@@ -447,6 +452,10 @@ mcp.setRequestHandler(CallToolRequestSchema, async (request) => {
     case "send_typing": {
       await runtime.sendTyping(requireNonEmptyString(args, "group_id"));
       return textResult("typing indicator sent");
+    }
+    case "publish_keypackage": {
+      await runtime.publishKeypackage();
+      return textResult("key package published");
     }
     default:
       throw new Error(`unknown tool: ${request.params.name}`);

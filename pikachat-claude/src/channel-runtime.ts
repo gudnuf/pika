@@ -329,6 +329,12 @@ export class PikachatClaudeChannel {
     await daemon.sendTyping(groupId);
   }
 
+  /** Publishes a fresh MLS key package to relays. */
+  async publishKeypackage(): Promise<void> {
+    const daemon = this.#requireDaemon();
+    await daemon.publishKeypackage(this.#config.relays);
+  }
+
   async #resolveOutboundFiles(files: string[]): Promise<string[]> {
     if (files.length === 0) {
       return [];

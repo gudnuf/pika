@@ -16,6 +16,7 @@ class FakeDaemon {
   memberCountByGroup = new Map<string, number>();
   failSetRelays = false;
   shutdownCalls = 0;
+  publishKeypackageCalls: Array<string[]> = [];
 
   onEvent(handler: PikachatDaemonEventHandler): void {
     this.handler = handler;
@@ -35,7 +36,9 @@ class FakeDaemon {
     }
   }
 
-  async publishKeypackage() {}
+  async publishKeypackage(relays: string[]) {
+    this.publishKeypackageCalls.push(relays);
+  }
 
   async listGroups() {
     return {
@@ -569,6 +572,30 @@ describe("PikachatClaudeChannel", () => {
     }
   });
 
+  it("publishKeypackage delegates to daemon.publishKeypackage", async () => {
+    const tempDir = await mkdtemp(path.join(os.tmpdir(), "pikachat-claude-"));
+    const daemon = new FakeDaemon();
+    const channel = createInMemoryChannelForTests({
+      daemon,
+      config: {
+        channelHome: tempDir,
+        accessFile: path.join(tempDir, "access.json"),
+        inboxDir: path.join(tempDir, "inbox"),
+      },
+    });
+    try {
+      await channel.start();
+      // start() calls publishKeypackage once; clear to isolate our call
+      daemon.publishKeypackageCalls = [];
+      await channel.publishKeypackage();
+      assert.equal(daemon.publishKeypackageCalls.length, 1);
+      assert.deepEqual(daemon.publishKeypackageCalls[0], ["ws://127.0.0.1:18080"]);
+    } finally {
+      await channel.stop();
+      await rm(tempDir, { recursive: true, force: true });
+    }
+  });
+
   it("group management methods throw when daemon is not running", async () => {
     const tempDir = await mkdtemp(path.join(os.tmpdir(), "pikachat-claude-"));
     const daemon = new FakeDaemon();
@@ -592,6 +619,7 @@ describe("PikachatClaudeChannel", () => {
       await assert.rejects(() => channel.listWelcomes(), /daemon is not running/);
       await assert.rejects(() => channel.acceptWelcome("w1"), /daemon is not running/);
       await assert.rejects(() => channel.sendTyping("g1"), /daemon is not running/);
+      await assert.rejects(() => channel.publishKeypackage(), /daemon is not running/);
     } finally {
       await rm(tempDir, { recursive: true, force: true });
     }
