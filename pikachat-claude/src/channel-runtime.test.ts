@@ -310,6 +310,59 @@ describe("PikachatClaudeChannel", () => {
     }
   });
 
+  it("enforces group mention gating on a 2-member group", async () => {
+    const tempDir = await mkdtemp(path.join(os.tmpdir(), "pikachat-claude-"));
+    const daemon = new FakeDaemon();
+    daemon.memberCountByGroup.set("twogroup", 2);
+    const notifications: Array<{ content: string; meta: Record<string, string> }> = [];
+    const channel = createInMemoryChannelForTests({
+      daemon,
+      onNotification: (notification) => {
+        notifications.push(notification);
+      },
+      config: {
+        channelHome: tempDir,
+        accessFile: path.join(tempDir, "access.json"),
+        inboxDir: path.join(tempDir, "inbox"),
+      },
+    });
+    try {
+      await channel.start();
+      await channel.enableGroup("twogroup", true);
+
+      // Message without mention — should NOT be delivered
+      await daemon.emit({
+        type: "message_received",
+        nostr_group_id: "twogroup",
+        from_pubkey: "sender1",
+        content: "plain message no mention",
+        kind: 9,
+        created_at: 1,
+        event_id: "ev1",
+        message_id: "msg1",
+      });
+      assert.equal(notifications.length, 0);
+
+      // Message WITH mention (bot's npub) — should be delivered as group
+      await daemon.emit({
+        type: "message_received",
+        nostr_group_id: "twogroup",
+        from_pubkey: "sender1",
+        content: "hey npub1bot check this out",
+        kind: 9,
+        created_at: 2,
+        event_id: "ev2",
+        message_id: "msg2",
+      });
+      assert.equal(notifications.length, 1);
+      assert.equal(notifications[0].meta.chat_type, "group");
+      assert.equal(notifications[0].meta.mentioned, "true");
+    } finally {
+      await channel.stop();
+      await rm(tempDir, { recursive: true, force: true });
+    }
+  });
+
   it("cleans up the daemon when startup fails", async () => {
     const tempDir = await mkdtemp(path.join(os.tmpdir(), "pikachat-claude-"));
     const daemon = new FakeDaemon();

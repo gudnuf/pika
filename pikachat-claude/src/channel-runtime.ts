@@ -404,10 +404,11 @@ export class PikachatClaudeChannel {
     }
 
     const chatId = event.nostr_group_id.trim().toLowerCase();
-    const chatType = await this.#resolveChatType(chatId);
+    const { chatType, accessState } = await this.#resolveChatType(chatId);
     const messageText = augmentMessageText(event.content, event.media ?? []);
 
     if (chatType === "direct") {
+      // DM path: must re-acquire the lock since it may mutate state (create pairings).
       const directAccess = await this.#withAccessState<DirectAccessResult>(async (state) => {
         const decision = evaluateDmAccess(state, senderId);
         if (decision !== "pairing") {
@@ -444,8 +445,8 @@ export class PikachatClaudeChannel {
       return;
     }
 
-    const state = await this.accessStatus();
-    const groupDecision = evaluateGroupAccess(state, chatId, senderId);
+    // Group path: use the access state already loaded by #resolveChatType (read-only).
+    const groupDecision = evaluateGroupAccess(accessState, chatId, senderId);
     if (!groupDecision.enabled || !groupDecision.senderAllowed) {
       return;
     }
@@ -453,7 +454,7 @@ export class PikachatClaudeChannel {
       text: messageText,
       botPubkey: this.#botPubkey,
       botNpub: this.#botNpub,
-      mentionPatterns: state.mentionPatterns,
+      mentionPatterns: accessState.mentionPatterns,
     });
     if (groupDecision.requireMention && !mentioned) {
       return;
@@ -475,10 +476,21 @@ export class PikachatClaudeChannel {
     });
   }
 
-  async #resolveChatType(chatId: string): Promise<"direct" | "group"> {
+  async #resolveChatType(chatId: string): Promise<{ chatType: "direct" | "group"; accessState: AccessState }> {
+    // Load access state once — the caller reuses it for the subsequent
+    // access evaluation, avoiding a redundant disk read.
+    const accessState = await this.#withAccessLock(async () => await this.#loadAccessState());
+
+    // If the chat is explicitly registered as a group in access state,
+    // treat it as a group regardless of member count. This ensures
+    // require_mention gating is applied even for 2-member groups.
+    if (accessState.groups[chatId]) {
+      return { chatType: "group", accessState };
+    }
+
     const cached = this.#memberCounts.get(chatId);
     if (cached !== undefined) {
-      return cached <= 2 ? "direct" : "group";
+      return { chatType: cached <= 2 ? "direct" : "group", accessState };
     }
     try {
       const daemon = this.#requireDaemon();
@@ -487,9 +499,9 @@ export class PikachatClaudeChannel {
       if (memberCount > 0) {
         this.#memberCounts.set(chatId, memberCount);
       }
-      return memberCount <= 2 ? "direct" : "group";
+      return { chatType: memberCount <= 2 ? "direct" : "group", accessState };
     } catch {
-      return "group";
+      return { chatType: "group", accessState };
     }
   }
 
